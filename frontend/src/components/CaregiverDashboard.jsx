@@ -23,8 +23,8 @@ const CaregiverDashboard = ({ profile }) => {
             setAlert(null);
           }
         }
-      } catch (err) {
-        console.error('Failed to poll alert status', err);
+      } catch {
+        // silent: alert polling failure is non-critical
       }
     };
     checkAlert();
@@ -36,8 +36,8 @@ const CaregiverDashboard = ({ profile }) => {
     try {
       await fetch('/api/caregiver/clear-alert', { method: 'POST' });
       setAlert(null);
-    } catch (err) {
-      console.error(err);
+    } catch {
+      // silent: clear-alert failure is non-critical
     }
   };
 

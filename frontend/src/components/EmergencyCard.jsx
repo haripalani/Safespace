@@ -12,8 +12,8 @@ function EmergencyCard() {
         if (latitude > 8 && latitude < 13 && longitude > 74 && longitude < 78) {
           setRegion('kerala');
         }
-      }, (error) => {
-        console.warn('Geolocation error:', error.message);
+      }, () => {
+        // silent: geolocation unavailable, defaults to national resources
       }, { timeout: 5000 });
     }
   }, []);

@@ -1,8 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Phone, Play, Pause, RotateCcw } from 'lucide-react';
+import { Phone, Play, Pause, RotateCcw, Hand } from 'lucide-react';
 import BreathingVisualizer from './BreathingVisualizer';
 import KinestheticGrounding from './KinestheticGrounding';
-import { Hand } from 'lucide-react';
 
 function SupportCard({ message, profile, onReset }) {
   const contactName = profile?.trusted_contact || 'someone you trust';

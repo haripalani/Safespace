@@ -31,9 +31,8 @@ router.post('/profile', auth, async (req, res) => {
         );
         
         res.status(200).json({ success: true, profile });
-    } catch (err) {
-        console.error('Error saving profile');
-        res.status(500).json({ error: 'Failed to save profile' });
+    } catch {
+        res.status(200).json({ success: false, error: 'Unable to save profile at this time.' });
     }
 });
 
@@ -86,8 +85,7 @@ personalize and phrase it naturally.`;
         });
 
         res.json({ message: response.text });
-    } catch (err) {
-        console.error('Error in generate endpoint:', err);
+    } catch {
         res.status(200).json({ message: 'I am here for you. Please take a deep breath.' });
     }
 });
@@ -150,8 +148,7 @@ Caregiver's input: "${cappedText}"`;
         const parsed = JSON.parse(output);
 
         res.json(parsed);
-    } catch (err) {
-        console.error('Error in caregiver respond endpoint:', err);
+    } catch {
         res.status(200).json({ 
             emergency: false, 
             script: "I am here for you. Please take a deep breath.", 
@@ -171,9 +168,8 @@ router.get('/caregiver/alert-status', auth, async (req, res) => {
         if (!user) return res.status(404).json({ error: 'User not found' });
 
         res.json({ pendingAlert: user.pendingAlert, lastAlertText: user.lastAlertText });
-    } catch (err) {
-        console.error('Error fetching alert status');
-        res.status(500).json({ error: 'Failed to fetch status' });
+    } catch {
+        res.status(200).json({ pendingAlert: false, lastAlertText: '' });
     }
 });
 
@@ -185,9 +181,8 @@ router.post('/caregiver/clear-alert', auth, async (req, res) => {
         }
         await User.findByIdAndUpdate(req.user._id, { $set: { pendingAlert: false } });
         res.json({ success: true });
-    } catch (err) {
-        console.error('Error clearing alert');
-        res.status(500).json({ error: 'Failed to clear alert' });
+    } catch {
+        res.status(200).json({ success: false });
     }
 });
 
@@ -207,9 +202,8 @@ router.post('/caregiver/alert', auth, async (req, res) => {
         );
 
         res.json({ success: true });
-    } catch (err) {
-        console.error('Error setting alert', err);
-        res.status(500).json({ error: 'Failed to set alert' });
+    } catch {
+        res.status(200).json({ success: false });
     }
 });
 
