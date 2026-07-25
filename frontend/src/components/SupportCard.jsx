@@ -1,21 +1,113 @@
-import React from 'react';
+import React, { useEffect, useState, useRef } from 'react';
+import { Phone, Play, Pause, RotateCcw } from 'lucide-react';
 
 function SupportCard({ message, profile, onReset }) {
   const contactName = profile?.trusted_contact || 'someone you trust';
+  const [isPlaying, setIsPlaying] = useState(false);
+  const utteranceRef = useRef(null);
+
+  useEffect(() => {
+    if (!('speechSynthesis' in window)) return;
+
+    window.speechSynthesis.cancel(); // Stop any previous speech
+    
+    const utterance = new SpeechSynthesisUtterance(message);
+    utterance.rate = 0.85;
+    utterance.pitch = 1.0;
+
+    const setVoice = () => {
+      const voices = window.speechSynthesis.getVoices();
+      const indianVoice = voices.find(v => v.lang === 'hi-IN' || v.lang === 'en-IN');
+      if (indianVoice) {
+        utterance.voice = indianVoice;
+      }
+    };
+
+    if (window.speechSynthesis.getVoices().length > 0) {
+      setVoice();
+    } else {
+      window.speechSynthesis.onvoiceschanged = setVoice;
+    }
+
+    utterance.onstart = () => setIsPlaying(true);
+    utterance.onend = () => setIsPlaying(false);
+    utterance.onerror = () => setIsPlaying(false);
+
+    utteranceRef.current = utterance;
+    
+    // Auto-play on mount
+    window.speechSynthesis.speak(utterance);
+
+    return () => {
+      window.speechSynthesis.cancel();
+    };
+  }, [message]);
+
+  const togglePlayback = () => {
+    if (!('speechSynthesis' in window) || !utteranceRef.current) return;
+
+    if (isPlaying) {
+      window.speechSynthesis.pause();
+      setIsPlaying(false);
+    } else {
+      if (window.speechSynthesis.paused) {
+        window.speechSynthesis.resume();
+      } else {
+        window.speechSynthesis.speak(utteranceRef.current);
+      }
+      setIsPlaying(true);
+    }
+  };
+
+  const replay = () => {
+    if (!('speechSynthesis' in window) || !utteranceRef.current) return;
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(utteranceRef.current);
+    setIsPlaying(true);
+  };
 
   return (
-    <div className="card container">
-      <p style={{ fontSize: '1.2rem', margin: '1rem 0' }}>{message}</p>
-      
-      <a href="tel:" style={{ textDecoration: 'none' }}>
-        <button className="primary" aria-label={`Call ${contactName}`}>
-          Call {contactName}
-        </button>
-      </a>
-      
-      <button className="secondary" onClick={onReset} aria-label="Start over">
-        I need more support
-      </button>
+    <div className="w-full max-w-2xl mx-auto flex flex-col justify-center min-h-[60vh]">
+      <div className="bg-white p-10 rounded-3xl border border-slate-100 shadow-sm text-center relative">
+        
+        {/* TTS Controls */}
+        <div className="absolute top-4 right-4 flex gap-2">
+          <button 
+            onClick={togglePlayback}
+            className="p-3 rounded-full bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors shadow-sm"
+            aria-label={isPlaying ? "Pause audio" : "Play audio"}
+          >
+            {isPlaying ? <Pause size={20} /> : <Play size={20} />}
+          </button>
+          <button 
+            onClick={replay}
+            className="p-3 rounded-full bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors shadow-sm"
+            aria-label="Replay audio"
+          >
+            <RotateCcw size={20} />
+          </button>
+        </div>
+
+        <p className="text-2xl md:text-3xl text-emerald-900 font-bold leading-relaxed mb-12 mt-8">
+          "{message}"
+        </p>
+        
+        <div className="flex flex-col gap-4 w-full">
+          <a href="tel:" className="block w-full" style={{ textDecoration: 'none' }}>
+            <button className="w-full h-16 bg-emerald-600 hover:bg-emerald-700 text-white text-xl font-bold rounded-2xl flex items-center justify-center gap-3 transition-colors shadow-md active:scale-95" aria-label={`Call ${contactName}`}>
+              <Phone size={24} /> Call {contactName}
+            </button>
+          </a>
+          
+          <button 
+            className="w-full h-16 bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200 text-lg font-medium rounded-2xl transition-colors active:scale-95" 
+            onClick={onReset} 
+            aria-label="Start over"
+          >
+            I need more support
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

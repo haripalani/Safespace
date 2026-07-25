@@ -7,6 +7,7 @@ const rateLimit = require('express-rate-limit');
 const cookieParser = require('cookie-parser');
 const apiRoutes = require('./routes/api');
 const authRoutes = require('./routes/auth');
+const seedDemoAccounts = require('./scripts/seedAccounts');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -37,8 +38,12 @@ app.use('/api', apiRoutes);
 
 // MongoDB connection
 mongoose.connect(process.env.MONGODB_URI)
-    .then(() => {
+    .then(async () => {
         console.log('Connected to MongoDB');
+        
+        // Seed demo accounts for hackathon evaluation
+        await seedDemoAccounts();
+
         // Only listen locally, Vercel Serverless handles the port
         if (process.env.NODE_ENV !== 'production') {
             app.listen(PORT, () => {

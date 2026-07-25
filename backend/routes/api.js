@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Profile = require('../models/Profile');
+const KnowledgeBase = require('../models/KnowledgeBase');
 const { GoogleGenAI } = require('@google/genai');
 const auth = require('../middleware/auth');
 
@@ -89,7 +90,7 @@ router.post('/generate', auth, async (req, res) => {
             return res.status(403).json({ error: 'Unauthorized role' });
         }
 
-        const { text } = req.body;
+        const { text, category } = req.body;
         if (!text || typeof text !== 'string') {
             return res.status(400).json({ error: 'Text required' });
         }
@@ -101,23 +102,30 @@ router.post('/generate', auth, async (req, res) => {
         const contact_name = String(profile?.trusted_contact || '').substring(0, 100);
         const phrase = String(profile?.calming_phrase || '').substring(0, 250);
 
-        const prompt = `You write a short, calming message for someone in early craving/distress, in 
-the style shown below. Do not copy the examples verbatim — generate a new 
-message each time, matching tone and length, personalized to the profile.
+        // RAG Retrieval
+        let retrievedSnippets = '';
+        if (category === 'LOW' || category === 'MEDIUM') {
+            const snippets = await KnowledgeBase.find({ audience: 'patient', category: category });
+            retrievedSnippets = snippets.map(s => `- ${s.text}`).join('\n');
+        }
 
-Style examples (for tone only, do not reuse text):
-- "This feeling will pass. Look around and name 5 things you can see."
-- "You don't have to say much. Just call {{contact_name}} and say you need to talk."
-- "Breathe in for 4, hold for 4, out for 4. You're not alone in this."
+        const prompt = `You write a short, calming message for someone in early craving/distress. 
+Ground your message in the reference facts below — you may paraphrase and 
+personalize them, but do not contradict them or invent unrelated advice.
+
+Reference facts (retrieved, vetted — use these, don't invent new coping 
+techniques):
+${retrievedSnippets}
 
 Profile: name=${name}, trusted_contact=${contact_name}, calming_phrase=${phrase}
 User's input: ${cappedText}
 Language: detect and respond in the same language as the user's input — this 
 may be English, Hindi, or any other major Indian language, including 
-code-mixed forms. Match exactly.
+code-mixed forms (like Hinglish, Manglish, Tanglish, etc.). Match exactly.
 
 Output under 40 words. Plain, warm language — avoid clinical terms like 
-"relapse" or "sponsor."`;
+"relapse", "sponsor", "sober", "therapy", or "addict". Do not simply copy a reference fact verbatim — 
+personalize and phrase it naturally.`;
 
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
@@ -148,12 +156,22 @@ router.post('/caregiver/respond', auth, async (req, res) => {
 
         const cappedText = text.substring(0, MAX_TEXT_LENGTH);
 
+        // RAG Retrieval for Caregiver
+        const snippets = await KnowledgeBase.find({ audience: 'caregiver', category: 'caregiver_deescalation' });
+        const retrievedSnippets = snippets.map(s => `- ${s.text}`).join('\n');
+
         const prompt = `You help a caregiver (friend, family member, or peer) respond calmly to 
 someone they support who may be in a craving or distress moment, in India. 
 Input may be in English, Hindi, or any major Indian language, including 
-code-mixed forms, and may be anxious or fragmented.
+code-mixed forms (like Hinglish, Manglish, Tanglish, etc.), and may be anxious or fragmented.
+
+Ground your response in the reference facts below — paraphrase and adapt 
+them, don't contradict them or invent unrelated advice:
+Reference facts (retrieved, vetted):
+${retrievedSnippets}
+
 Generate a short, calm script the caregiver can say out loud, plus one brief 
-"avoid saying" tip. Do not diagnose, do not suggest medication or dosages, do 
+"avoid saying" tip, and a physical grounding action. Do not diagnose, do not suggest medication or dosages, do 
 not instruct on anything beyond calm de-escalation and when to seek 
 emergency help.
 If the input describes physical danger, overdose signs, or a medical 
@@ -161,8 +179,9 @@ emergency, respond ONLY with:
 {"emergency": true} 
 and nothing else — do not generate a script in this case.
 Otherwise return only JSON: 
-{"emergency": false, "script": "...", "avoid_tip": "..."}
-Keep the script under 40 words, warm, plain language, no clinical jargon.
+{"emergency": false, "script": "...", "avoid_tip": "...", "physical_action": "..."}
+Keep the script under 40 words, warm, plain language, no clinical jargon. 
+Language: Detect and respond in the same language as the caregiver's input (including Hinglish, Manglish, Tanglish, etc.). Match exactly.
 
 Caregiver's input: "${cappedText}"`;
 

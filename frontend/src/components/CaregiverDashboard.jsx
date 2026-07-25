@@ -1,25 +1,28 @@
 import React, { useState } from 'react';
-import EmergencyCard from './EmergencyCard'; // Assuming we can reuse this
+import { MessageSquare, HeartPulse } from 'lucide-react';
+import EmergencyCard from './EmergencyCard';
 
 const CaregiverDashboard = ({ profile }) => {
-  const [inputText, setInputText] = useState('');
+  const [situation, setSituation] = useState('');
   const [loading, setLoading] = useState(false);
-  const [response, setResponse] = useState(null);
+  const [advice, setAdvice] = useState(null);
   const [error, setError] = useState('');
 
-  const handleSubmit = async (e) => {
+  const linkedPatient = { name: profile?.name || 'Your linked patient' };
+
+  const handleAskAdvice = async (e) => {
     e.preventDefault();
-    if (!inputText.trim()) return;
+    if (!situation.trim()) return;
     
     setLoading(true);
     setError('');
-    setResponse(null);
+    setAdvice(null);
 
     try {
       const res = await fetch('/api/caregiver/respond', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: inputText })
+        body: JSON.stringify({ text: situation })
       });
       
       if (!res.ok) {
@@ -27,7 +30,7 @@ const CaregiverDashboard = ({ profile }) => {
       }
       
       const data = await res.json();
-      setResponse(data);
+      setAdvice(data);
     } catch (err) {
       setError('Something went wrong — please try again');
     } finally {
@@ -36,60 +39,103 @@ const CaregiverDashboard = ({ profile }) => {
   };
 
   return (
-    <div className="flex flex-col flex-1 p-6 space-y-6 overflow-y-auto pb-24">
-      <h2 className="text-2xl font-semibold text-slate-800">Caregiver Dashboard</h2>
+    <div className="w-full max-w-4xl mx-auto flex flex-col gap-6">
       
-      <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200">
-        <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-2">Linked Patient</h3>
-        <span className="text-slate-800 font-medium text-lg">{profile?.name || 'Your linked patient'}</span>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-2">
+        <div className="col-span-1 md:col-span-2 bg-white rounded-3xl p-6 border border-slate-100 shadow-sm flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-bold text-emerald-900">Linked Patient</h2>
+            <p className="text-slate-500 text-sm">You are listed as their trusted contact.</p>
+          </div>
+          <div className="bg-emerald-50 px-6 py-4 rounded-2xl border border-emerald-100">
+            <p className="text-lg font-bold text-emerald-800">{linkedPatient.name}</p>
+          </div>
+        </div>
+
+        <div className="col-span-1 bg-white rounded-3xl p-6 border border-slate-100 shadow-sm flex flex-col justify-center items-center text-center">
+          <p className="text-slate-500 text-sm mb-2">Status</p>
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 bg-emerald-500 rounded-full animate-pulse"></div>
+            <span className="font-bold text-slate-700">Monitoring</span>
+          </div>
+        </div>
       </div>
 
-      <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
-        <h3 className="text-lg font-medium text-slate-800 mb-2">Get De-escalation Advice</h3>
-        <p className="text-slate-600 mb-4 text-sm">Describe what they are doing or saying right now. I will give you a short, calm response.</p>
+      <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm flex flex-col">
+        <h3 className="text-lg font-bold text-slate-800 mb-2">Provide Support</h3>
+        <p className="text-sm text-slate-500 mb-6">Describe the situation, and the AI will suggest the best way to respond to {linkedPatient.name}.</p>
         
-        <form onSubmit={handleSubmit} className="space-y-4">
+        {error && <div className="text-red-600 bg-red-50 p-4 rounded-xl mb-6 text-center border border-red-100 font-medium">{error}</div>}
+
+        <div className="flex flex-col mb-6">
           <textarea 
-            value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
-            placeholder="Describe what's happening right now..."
-            className="w-full p-4 border border-slate-200 rounded-xl resize-none h-32 focus:outline-none focus:ring-2 focus:ring-teal-500"
+            className="w-full p-5 rounded-2xl bg-slate-50 border border-slate-200 text-slate-800 text-base focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 resize-none min-h-[150px]"
+            placeholder={`e.g. ${linkedPatient.name} is pacing and says they need to leave right now...`}
+            value={situation}
+            onChange={(e) => setSituation(e.target.value)}
+            disabled={loading}
           />
-          <button 
-            type="submit" 
-            disabled={loading || !inputText.trim()}
-            className="w-full py-4 bg-teal-600 hover:bg-teal-700 text-white font-medium rounded-xl disabled:opacity-50"
-          >
-            {loading ? 'Thinking...' : 'Get Advice'}
-          </button>
-        </form>
+        </div>
 
-        {error && <div className="mt-4 text-red-600 text-sm">{error}</div>}
+        <button 
+          className="w-full h-16 bg-emerald-600 hover:bg-emerald-700 text-white text-xl font-bold rounded-2xl shadow-md active:scale-[0.98] transition-all flex items-center justify-center disabled:opacity-50 disabled:active:scale-100"
+          onClick={handleAskAdvice}
+          disabled={loading || !situation.trim()}
+        >
+          {loading ? 'Analyzing situation...' : 'Get Advice'}
+        </button>
+      </div>
 
-        {response && (
-          <div className="mt-6">
-            {response.emergency ? (
-              <EmergencyCard />
-            ) : (
-              <div className="space-y-4">
-                <div className="p-4 bg-teal-50 text-teal-900 rounded-xl border border-teal-100">
-                  <h4 className="text-xs uppercase font-bold tracking-wider mb-1 text-teal-700">Say this:</h4>
-                  <p className="text-lg">"{response.script}"</p>
+      {advice && (
+        <div className="bg-white p-8 rounded-3xl border border-emerald-100 shadow-lg animate-in fade-in slide-in-from-bottom-4 duration-500">
+          {advice.emergency ? (
+            <EmergencyCard />
+          ) : (
+            <>
+              <div className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-100">
+                <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
+                  <MessageSquare size={20} />
                 </div>
-                {response.avoid_tip && (
-                  <div className="p-4 bg-orange-50 text-orange-900 rounded-xl border border-orange-100">
-                    <h4 className="text-xs uppercase font-bold tracking-wider mb-1 text-orange-700">Avoid saying:</h4>
-                    <p className="text-sm">{response.avoid_tip}</p>
+                <h3 className="text-xl font-bold text-slate-800">Suggested Action Plan</h3>
+              </div>
+              
+              <div className="space-y-4 text-slate-700">
+                {advice.script && (
+                  <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-100">
+                    <h4 className="text-xs uppercase font-bold tracking-wider mb-2 text-emerald-600">💬 What to say right now:</h4>
+                    <p className="text-lg">"{advice.script}"</p>
+                  </div>
+                )}
+                {advice.avoid_tip && (
+                  <div className="p-4 bg-red-50 rounded-xl border border-red-100">
+                    <h4 className="text-xs uppercase font-bold tracking-wider mb-2 text-red-600">🚫 What NOT to say:</h4>
+                    <p className="text-sm">{advice.avoid_tip}</p>
+                  </div>
+                )}
+                {advice.physical_action && (
+                  <div className="p-4 bg-blue-50 rounded-xl border border-blue-100">
+                    <h4 className="text-xs uppercase font-bold tracking-wider mb-2 text-blue-600">🧘 Physical grounding action:</h4>
+                    <p className="text-sm">{advice.physical_action}</p>
                   </div>
                 )}
               </div>
-            )}
-          </div>
-        )}
-      </div>
+              
+              <button 
+                className="mt-8 px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-xl transition-colors w-full md:w-auto"
+                onClick={() => {
+                  setAdvice(null);
+                  setSituation('');
+                }}
+              >
+                Clear and ask again
+              </button>
+            </>
+          )}
+        </div>
+      )}
 
-      <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200">
-        <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-2">General Guidelines</h3>
+      <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm mt-4">
+        <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-3">General Guidelines</h3>
         <ul className="list-disc pl-5 text-sm text-slate-600 space-y-2">
           <li>Stay calm and keep your voice steady.</li>
           <li>Do not argue or try to reason logically during an active craving.</li>
@@ -97,9 +143,6 @@ const CaregiverDashboard = ({ profile }) => {
         </ul>
       </div>
 
-      <div className="opacity-70 transform scale-95 mt-4">
-        <EmergencyCard />
-      </div>
     </div>
   );
 };
