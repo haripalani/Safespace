@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import EmergencyCard from './EmergencyCard';
 import SupportCard from './SupportCard';
-import { Mic, MicOff, AlertCircle } from 'lucide-react';
+import { Mic, MicOff, AlertCircle, SendHorizonal } from 'lucide-react';
 
 function MainScreen({ profile, stealthMode }) {
   const [text, setText] = useState('');
@@ -26,7 +26,7 @@ function MainScreen({ profile, stealthMode }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${document.cookie.split('token=')[1]?.split(';')[0]}` },
         body: JSON.stringify({ text: "Patient's safety timer expired without confirmation." })
-      }).catch(console.error);
+      }).catch(() => {/* silent: non-critical background alert */});
       
       if (!stealthMode) {
         alert('Your trusted contact has been notified to check in on you.');
@@ -63,8 +63,7 @@ function MainScreen({ profile, stealthMode }) {
       const transcript = event.results[0][0].transcript;
       setText((prev) => prev + (prev ? ' ' : '') + transcript);
     };
-    recognition.onerror = (event) => {
-      console.error('Speech recognition error', event.error);
+    recognition.onerror = () => {
       setIsListening(false);
     };
     recognition.onend = () => setIsListening(false);
@@ -83,6 +82,14 @@ function MainScreen({ profile, stealthMode }) {
 
   const handleQuickExit = () => {
     window.location.href = 'https://www.google.com';
+  };
+
+  // Allow Enter to submit; Shift+Enter for newline
+  const handleTextareaKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      if (text.trim() && !loading) handleSubmit();
+    }
   };
 
   const presetChips = [
@@ -268,31 +275,59 @@ function MainScreen({ profile, stealthMode }) {
             ))}
           </div>
 
-          <div className="flex gap-4">
-            <input 
-              type="text" 
-              placeholder="What are you feeling right now? (Optional)" 
+          {/* Textarea + inline controls row */}
+          <div className="relative w-full">
+            <textarea
+              id="crisis-input-textarea"
+              aria-label="Crisis Input Message Text Area"
+              placeholder="Type your message here..."
               value={text}
               onChange={(e) => setText(e.target.value)}
+              onKeyDown={handleTextareaKeyDown}
               disabled={loading}
-              className="flex-1 p-5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 text-lg focus:outline-none focus:border-emerald-500 dark:focus:border-emerald-400 focus:ring-1 focus:ring-emerald-500 dark:focus:ring-emerald-400 transition-colors"
+              rows={3}
+              className="w-full p-5 pr-[140px] rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 text-lg focus:outline-none focus:border-emerald-500 dark:focus:border-emerald-400 focus:ring-1 focus:ring-emerald-500 dark:focus:ring-emerald-400 transition-colors resize-none leading-relaxed"
             />
-            <button 
-              className={`h-[72px] w-[72px] rounded-2xl flex items-center justify-center transition-all ${isListening ? 'bg-emerald-100 dark:bg-emerald-900/50 border-emerald-300 dark:border-emerald-700 shadow-inner' : 'bg-white dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-slate-700 border-slate-200 dark:border-slate-700 shadow-sm'} border relative`}
-              onClick={toggleListen}
-              disabled={loading}
-              aria-label={isListening ? "Stop listening" : "Start voice input"}
-            >
-              {isListening && <span className="absolute inset-0 rounded-2xl bg-emerald-400 dark:bg-emerald-600 opacity-20 animate-ping"></span>}
-              {isListening ? <MicOff className="text-emerald-700 dark:text-emerald-400" size={28} /> : <Mic className="text-emerald-600 dark:text-emerald-500" size={28} />}
-            </button>
+
+            {/* Inline controls — Send + Mic — anchored to bottom-right of textarea */}
+            <div className="absolute bottom-3 right-3 flex gap-2">
+              {/* Send button */}
+              <button
+                id="send-message-button"
+                aria-label="Send Crisis Support Message"
+                onClick={handleSubmit}
+                disabled={loading || !text.trim()}
+                className="h-14 px-5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 disabled:opacity-40 disabled:active:scale-100 text-white font-bold rounded-xl flex items-center gap-2 transition-all shadow-sm text-sm"
+              >
+                <SendHorizonal size={18} />
+                <span className="hidden sm:inline">Send</span>
+              </button>
+
+              {/* Mic button */}
+              <button
+                className={`h-14 w-14 rounded-xl flex items-center justify-center transition-all relative border ${
+                  isListening
+                    ? 'bg-emerald-100 dark:bg-emerald-900/50 border-emerald-300 dark:border-emerald-700 shadow-inner'
+                    : 'bg-white dark:bg-slate-700 hover:bg-emerald-50 dark:hover:bg-slate-600 border-slate-200 dark:border-slate-600 shadow-sm'
+                }`}
+                onClick={toggleListen}
+                disabled={loading}
+                aria-label={isListening ? 'Stop listening' : 'Start voice input'}
+              >
+                {isListening && <span className="absolute inset-0 rounded-xl bg-emerald-400 dark:bg-emerald-600 opacity-20 animate-ping" />}
+                {isListening
+                  ? <MicOff className="text-emerald-700 dark:text-emerald-400" size={24} />
+                  : <Mic className="text-emerald-600 dark:text-emerald-500" size={24} />}
+              </button>
+            </div>
           </div>
         </div>
 
         {error && <div className="text-red-600 bg-red-50 p-4 rounded-xl mb-6 text-center border border-red-100 font-medium">{error}</div>}
 
-        <button 
-          className="w-full h-20 bg-emerald-600 hover:bg-emerald-700 text-white text-2xl font-bold rounded-2xl mt-auto shadow-md active:scale-[0.98] transition-all flex items-center justify-center disabled:opacity-50 disabled:active:scale-100" 
+        <button
+          id="primary-support-button"
+          className="w-full h-20 bg-emerald-600 hover:bg-emerald-700 text-white text-2xl font-bold rounded-2xl mt-auto shadow-md active:scale-[0.98] transition-all flex items-center justify-center disabled:opacity-50 disabled:active:scale-100"
           onClick={handleSubmit}
           disabled={loading || !text.trim()}
           aria-label="I need support now"
