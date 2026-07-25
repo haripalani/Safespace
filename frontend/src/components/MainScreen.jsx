@@ -82,8 +82,8 @@ function MainScreen({ profile }) {
     setError('');
     
     try {
-      // Step 1: Classify
-      const classifyRes = await fetch('/api/classify', {
+      // Step 1: Classify/Triage
+      const classifyRes = await fetch('/api/triage', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: payloadText })

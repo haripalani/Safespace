@@ -1,7 +1,23 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { PhoneCall } from 'lucide-react';
 
 function EmergencyCard() {
+  const [region, setRegion] = useState('national');
+
+  useEffect(() => {
+    if ('geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition((position) => {
+        const { latitude, longitude } = position.coords;
+        // Approximate bounding box for Kerala/South India
+        if (latitude > 8 && latitude < 13 && longitude > 74 && longitude < 78) {
+          setRegion('kerala');
+        }
+      }, (error) => {
+        console.warn('Geolocation error:', error.message);
+      }, { timeout: 5000 });
+    }
+  }, []);
+
   return (
     <div className="w-full max-w-2xl mx-auto flex flex-col justify-center min-h-[60vh]">
       <div className="bg-white p-10 rounded-3xl border border-red-100 shadow-xl text-center">
@@ -18,12 +34,27 @@ function EmergencyCard() {
               Call 112 (National Emergency)
             </button>
           </a>
-          
-          <a href="tel:9152987821" style={{ textDecoration: 'none' }}>
-            <button className="w-full h-16 bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-700 text-lg font-bold rounded-2xl transition-colors active:scale-95" aria-label="Call KIRAN (Mental Health Helpline)">
-              Call KIRAN (1800-599-0019)
-            </button>
-          </a>
+
+          {region === 'kerala' ? (
+            <>
+              <a href="tel:14416" style={{ textDecoration: 'none' }}>
+                <button className="w-full h-16 bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-700 text-lg font-bold rounded-2xl transition-colors active:scale-95" aria-label="Call Tele-MANAS Kerala">
+                  Call Tele-MANAS Kerala (14416)
+                </button>
+              </a>
+              <a href="tel:1056" style={{ textDecoration: 'none' }}>
+                <button className="w-full h-16 bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-700 text-lg font-bold rounded-2xl transition-colors active:scale-95" aria-label="Call DISHA Helpline">
+                  Call DISHA Helpline (1056)
+                </button>
+              </a>
+            </>
+          ) : (
+            <a href="tel:9152987821" style={{ textDecoration: 'none' }}>
+              <button className="w-full h-16 bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-700 text-lg font-bold rounded-2xl transition-colors active:scale-95" aria-label="Call KIRAN (Mental Health Helpline)">
+                Call KIRAN (1800-599-0019)
+              </button>
+            </a>
+          )}
         </div>
       </div>
     </div>

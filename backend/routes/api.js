@@ -2,11 +2,13 @@ const express = require('express');
 const router = express.Router();
 const Profile = require('../models/Profile');
 const KnowledgeBase = require('../models/KnowledgeBase');
-const { GoogleGenAI } = require('@google/genai');
+const User = require('../models/User');
+const { ai } = require('../services/gemini');
 const auth = require('../middleware/auth');
-
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const triageRoutes = require('./triage');
 const MAX_TEXT_LENGTH = 500;
+
+router.use('/triage', triageRoutes);
 
 // POST /api/profile (Patient only)
 router.post('/profile', auth, async (req, res) => {
@@ -32,54 +34,6 @@ router.post('/profile', auth, async (req, res) => {
     } catch (err) {
         console.error('Error saving profile');
         res.status(500).json({ error: 'Failed to save profile' });
-    }
-});
-
-// POST /api/classify (Patient only)
-router.post('/classify', auth, async (req, res) => {
-    try {
-        if (req.user.role !== 'patient') {
-            return res.status(403).json({ error: 'Unauthorized role' });
-        }
-
-        const { text } = req.body;
-        if (!text || typeof text !== 'string') {
-            return res.status(400).json({ error: 'Text input required' });
-        }
-        
-        const cappedText = text.substring(0, MAX_TEXT_LENGTH);
-        
-        const prompt = `You are a triage classifier for a recovery-support app used in India. Input 
-may be in English, Hindi, or any major Indian language (Tamil, Telugu, 
-Kannada, Malayalam, Bengali, Marathi, Gujarati, Punjabi, etc.), including 
-code-mixed forms, and may be fragmented or emotional.
-Classify into exactly one category:
-- LOW: reflective, wants grounding/distraction
-- MEDIUM: active craving, wants a support script or contact
-- HIGH: mentions overdose, physical danger, explicit crisis language, or 
-  severe withdrawal symptoms
-
-Return only JSON: {"category": "...", "detected_language": "...", "confidence": 0-1}
-Never generate advice or commentary. If ambiguous, default to the higher-risk 
-category.
-
-Input text: "${cappedText}"`;
-
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: prompt,
-            config: {
-                responseMimeType: 'application/json'
-            }
-        });
-        
-        const output = response.text;
-        const parsed = JSON.parse(output);
-        
-        res.json(parsed);
-    } catch (err) {
-        console.error('Error in classify endpoint');
-        res.status(500).json({ error: 'Classification failed' });
     }
 });
 
@@ -197,8 +151,43 @@ Caregiver's input: "${cappedText}"`;
 
         res.json(parsed);
     } catch (err) {
-        console.error('Error in caregiver respond endpoint');
-        res.status(500).json({ error: 'Caregiver generation failed' });
+        console.error('Error in caregiver respond endpoint:', err);
+        res.status(200).json({ 
+            emergency: false, 
+            script: "I am here for you. Please take a deep breath.", 
+            avoid_tip: "Avoid arguing or raising your voice.", 
+            physical_action: "Offer a glass of water." 
+        });
+    }
+});
+
+// GET /api/caregiver/alert-status (Caregiver only)
+router.get('/caregiver/alert-status', auth, async (req, res) => {
+    try {
+        if (req.user.role !== 'caregiver') {
+            return res.status(403).json({ error: 'Unauthorized role' });
+        }
+        const user = await User.findById(req.user._id);
+        if (!user) return res.status(404).json({ error: 'User not found' });
+
+        res.json({ pendingAlert: user.pendingAlert, lastAlertText: user.lastAlertText });
+    } catch (err) {
+        console.error('Error fetching alert status');
+        res.status(500).json({ error: 'Failed to fetch status' });
+    }
+});
+
+// POST /api/caregiver/clear-alert (Caregiver only)
+router.post('/caregiver/clear-alert', auth, async (req, res) => {
+    try {
+        if (req.user.role !== 'caregiver') {
+            return res.status(403).json({ error: 'Unauthorized role' });
+        }
+        await User.findByIdAndUpdate(req.user._id, { $set: { pendingAlert: false } });
+        res.json({ success: true });
+    } catch (err) {
+        console.error('Error clearing alert');
+        res.status(500).json({ error: 'Failed to clear alert' });
     }
 });
 

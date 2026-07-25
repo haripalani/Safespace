@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Phone, Play, Pause, RotateCcw } from 'lucide-react';
+import BreathingVisualizer from './BreathingVisualizer';
 
 function SupportCard({ message, profile, onReset }) {
   const contactName = profile?.trusted_contact || 'someone you trust';
@@ -99,9 +100,11 @@ function SupportCard({ message, profile, onReset }) {
           </button>
         </div>
 
-        <p className="text-2xl md:text-3xl text-emerald-900 font-bold leading-relaxed mb-12 mt-8">
+        <p className="text-2xl md:text-3xl text-emerald-900 font-bold leading-relaxed mb-8 mt-8">
           "{message}"
         </p>
+        
+        <BreathingVisualizer isSpeaking={isPlaying} />
         
         <div className="flex flex-col gap-4 w-full">
           <a href="tel:" className="block w-full" style={{ textDecoration: 'none' }}>

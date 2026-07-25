@@ -10,21 +10,7 @@ Substance use disorder recovery & prevention — supporting individuals in crisi
 
 The core design constraint: the moments this app needs to serve are the moments users can least afford to type, read, or think clearly in. So instead of a typical chatbot or form-driven app, SafeSpace uses GenAI for narrow jobs — **classifying urgency**, **generating a personalized calm message**, and **providing caregiver scripts**.
 
-## Demo Accounts
 
-To test both sides of the application, please use the following demo accounts:
-
-**Patient Account:**
-- **Email:** patient@demo.com
-- **Password:** password123
-- **Role:** Patient
-*(This account has generated the invite code `EBE975`)*
-
-**Caregiver Account:**
-- **Email:** caregiver@demo.com
-- **Password:** password123
-- **Role:** Caregiver
-*(This account is linked to the patient above using the invite code)*
 
 ## How It Works
 

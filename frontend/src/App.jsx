@@ -77,12 +77,12 @@ function App() {
   }, []);
 
   if (loading) {
-    return <div className="min-h-screen bg-slate-50 flex items-center justify-center text-slate-800">Loading...</div>;
+    return <div className="min-h-screen bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 flex items-center justify-center">Loading...</div>;
   }
 
   if (!user) {
     return (
-      <div className="h-screen w-screen flex items-center justify-center bg-slate-50 relative">
+      <div className="h-screen w-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 relative">
         {isOffline && (
           <div className="absolute top-0 w-full bg-red-600 text-white font-bold p-3 text-center z-50 flex justify-center items-center gap-2 shadow-md">
             <ShieldAlert size={20} /> ⚠️ Network Disconnected — Displaying Emergency Direct Calls
@@ -94,7 +94,7 @@ function App() {
   }
 
   return (
-    <div className="h-screen w-screen flex flex-col md:flex-row overflow-hidden bg-slate-100 text-slate-800 font-sans relative">
+    <div className="h-screen w-screen flex flex-col md:flex-row overflow-hidden bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-sans relative">
       {isOffline && (
         <div className="absolute top-0 w-full bg-red-600 text-white font-bold p-3 text-center z-50 flex justify-center items-center gap-2 shadow-md">
           <ShieldAlert size={20} /> ⚠️ Network Disconnected — Displaying Emergency Direct Calls
@@ -111,7 +111,7 @@ function App() {
         </div>
         <button 
           onClick={handleLogout} 
-          className="flex items-center gap-2 px-3 py-2 bg-red-900/80 hover:bg-red-900 rounded-lg text-sm font-bold border border-red-800"
+          className="flex items-center gap-2 px-3 py-2 h-14 bg-red-900/80 hover:bg-red-900 rounded-lg text-sm font-bold border border-red-800"
           aria-label="Quick Exit"
         >
           <ShieldAlert size={16} /> Quick Exit
@@ -154,7 +154,7 @@ function App() {
         <div className="p-8">
           <button 
             onClick={handleLogout} 
-            className="flex items-center gap-4 px-4 py-3 text-red-100 bg-red-900/50 hover:bg-red-900 rounded-xl transition-colors w-full cursor-pointer font-bold border border-red-800"
+            className="flex items-center gap-4 px-4 py-3 h-14 text-red-100 bg-red-900/50 hover:bg-red-900 rounded-xl transition-colors w-full cursor-pointer font-bold border border-red-800"
             aria-label="Quick Exit"
           >
             <ShieldAlert size={20} />
@@ -164,7 +164,7 @@ function App() {
       </div>
 
       {/* RIGHT PANEL: Interactive Content */}
-      <div className="flex-1 h-full overflow-y-auto bg-slate-100 flex flex-col p-4 md:p-6 lg:p-10 relative">
+      <div className="flex-1 h-full overflow-y-auto bg-slate-100 dark:bg-slate-900 flex flex-col p-4 md:p-6 lg:p-10 relative">
         <div className="w-full max-w-5xl mx-auto flex-1 flex flex-col">
           {/* Header area like the search bar/profile in reference */}
           <div className="hidden md:flex justify-between items-center bg-white p-4 rounded-full shadow-sm mb-8">

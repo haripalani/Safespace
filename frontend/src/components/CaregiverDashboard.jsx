@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MessageSquare, HeartPulse } from 'lucide-react';
 import EmergencyCard from './EmergencyCard';
 
@@ -7,13 +7,50 @@ const CaregiverDashboard = ({ profile }) => {
   const [loading, setLoading] = useState(false);
   const [advice, setAdvice] = useState(null);
   const [error, setError] = useState('');
+  const [alert, setAlert] = useState(null);
 
   const linkedPatient = { name: profile?.name || 'Your linked patient' };
 
-  const handleAskAdvice = async (e) => {
-    e.preventDefault();
-    if (!situation.trim()) return;
+  useEffect(() => {
+    const checkAlert = async () => {
+      try {
+        const res = await fetch('/api/caregiver/alert-status');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.pendingAlert) {
+            setAlert(data);
+          } else {
+            setAlert(null);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to poll alert status', err);
+      }
+    };
+    checkAlert();
+    const interval = setInterval(checkAlert, 10000); // 10s
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleClearAlert = async () => {
+    try {
+      await fetch('/api/caregiver/clear-alert', { method: 'POST' });
+      setAlert(null);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleGenerateFromAlert = async () => {
+    if (!alert?.lastAlertText) return;
+    setSituation(alert.lastAlertText);
+    await handleClearAlert();
     
+    // Programmatically trigger ask advice
+    triggerAdvice(alert.lastAlertText);
+  };
+
+  const triggerAdvice = async (textToSend) => {
     setLoading(true);
     setError('');
     setAdvice(null);
@@ -22,7 +59,7 @@ const CaregiverDashboard = ({ profile }) => {
       const res = await fetch('/api/caregiver/respond', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: situation })
+        body: JSON.stringify({ text: textToSend })
       });
       
       if (!res.ok) {
@@ -36,6 +73,12 @@ const CaregiverDashboard = ({ profile }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleAskAdvice = async (e) => {
+    e.preventDefault();
+    if (!situation.trim()) return;
+    triggerAdvice(situation);
   };
 
   return (
@@ -55,11 +98,39 @@ const CaregiverDashboard = ({ profile }) => {
         <div className="col-span-1 bg-white rounded-3xl p-6 border border-slate-100 shadow-sm flex flex-col justify-center items-center text-center">
           <p className="text-slate-500 text-sm mb-2">Status</p>
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-emerald-500 rounded-full animate-pulse"></div>
-            <span className="font-bold text-slate-700">Monitoring</span>
+            <div className={`w-3 h-3 rounded-full animate-pulse ${alert ? 'bg-red-500' : 'bg-emerald-500'}`}></div>
+            <span className={`font-bold ${alert ? 'text-red-600' : 'text-slate-700'}`}>{alert ? 'Action Needed' : 'Monitoring'}</span>
           </div>
         </div>
       </div>
+
+      {alert && (
+        <div className="bg-red-50 border border-red-200 rounded-3xl p-6 flex flex-col md:flex-row items-center justify-between shadow-sm animate-in fade-in zoom-in-95">
+          <div className="flex items-center gap-4 mb-4 md:mb-0">
+            <div className="bg-red-100 text-red-600 p-3 rounded-full">
+              <HeartPulse size={24} />
+            </div>
+            <div>
+              <h3 className="text-red-800 font-bold text-lg">🚨 Patient requested support.</h3>
+              <p className="text-red-600 text-sm">They recently expressed distress: "{alert.lastAlertText}"</p>
+            </div>
+          </div>
+          <div className="flex gap-3 w-full md:w-auto">
+            <button 
+              onClick={handleClearAlert}
+              className="px-4 py-2 text-red-700 bg-red-100 hover:bg-red-200 font-medium rounded-xl transition-colors flex-1 md:flex-none"
+            >
+              Dismiss
+            </button>
+            <button 
+              onClick={handleGenerateFromAlert}
+              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-sm transition-colors flex-1 md:flex-none"
+            >
+              View recommended script
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm flex flex-col">
         <h3 className="text-lg font-bold text-slate-800 mb-2">Provide Support</h3>

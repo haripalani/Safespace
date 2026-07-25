@@ -26,5 +26,6 @@ Docs/
 
 # Python & Testing
 venv/
+.venv/
 .pytest_cache/
 tests/evidence/

@@ -26,6 +26,14 @@ const userSchema = new mongoose.Schema({
   linkedPatientId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User' // Only caregiver has this
+  },
+  pendingAlert: {
+    type: Boolean,
+    default: false
+  },
+  lastAlertText: {
+    type: String,
+    default: ''
   }
 }, { timestamps: true });
 
