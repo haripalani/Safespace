@@ -119,9 +119,8 @@ ${retrievedSnippets}
 
 Profile: name=${name}, trusted_contact=${contact_name}, calming_phrase=${phrase}
 User's input: ${cappedText}
-Language: detect and respond in the same language as the user's input — this 
-may be English, Hindi, or any other major Indian language, including 
-code-mixed forms (like Hinglish, Manglish, Tanglish, etc.). Match exactly.
+
+Language requirement for Text-To-Speech: Detect the primary language of the user's input. Respond strictly in ONE pure language (e.g. pure English, pure Hindi, pure Tamil). DO NOT use code-mixed languages like Hinglish, Manglish, or Tanglish, as they sound unnatural when spoken by standard TTS voices. 
 
 Output under 40 words. Plain, warm language — avoid clinical terms like 
 "relapse", "sponsor", "sober", "therapy", or "addict". Do not simply copy a reference fact verbatim — 
@@ -134,7 +133,7 @@ personalize and phrase it naturally.`;
 
         res.json({ message: response.text });
     } catch (err) {
-        console.error('Error in generate endpoint');
+        console.error('Error in generate endpoint:', err);
         res.status(500).json({ error: 'Generation failed' });
     }
 });

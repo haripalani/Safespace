@@ -23,3 +23,8 @@ node_modules/
 dist/
 build/
 Docs/
+
+# Python & Testing
+venv/
+.pytest_cache/
+tests/evidence/

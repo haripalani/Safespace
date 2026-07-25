@@ -44,12 +44,10 @@ mongoose.connect(process.env.MONGODB_URI)
         // Seed demo accounts for hackathon evaluation
         await seedDemoAccounts();
 
-        // Only listen locally, Vercel Serverless handles the port
-        if (process.env.NODE_ENV !== 'production') {
-            app.listen(PORT, () => {
-                console.log(`Server running on port ${PORT}`);
-            });
-        }
+        // Start the server (Required for Render)
+        app.listen(PORT, () => {
+            console.log(`Server running on port ${PORT}`);
+        });
     })
     .catch((err) => {
         // Redact any credentials from connection error logs

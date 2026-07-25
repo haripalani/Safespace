@@ -4,11 +4,13 @@ import Onboarding from './components/Onboarding';
 import MainScreen from './components/MainScreen';
 import CaregiverDashboard from './components/CaregiverDashboard';
 import AuthScreen from './components/AuthScreen';
+import EmergencyCard from './components/EmergencyCard';
 
 function App() {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
 
   const fetchCurrentUser = useCallback(async () => {
     try {
@@ -57,7 +59,21 @@ function App() {
       }
     };
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+
+    const handleOffline = () => {
+      setIsOffline(true);
+      window.speechSynthesis?.cancel(); // Cancel TTS if offline
+    };
+    const handleOnline = () => setIsOffline(false);
+    
+    window.addEventListener('offline', handleOffline);
+    window.addEventListener('online', handleOnline);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('online', handleOnline);
+    };
   }, []);
 
   if (loading) {
@@ -66,14 +82,24 @@ function App() {
 
   if (!user) {
     return (
-      <div className="h-screen w-screen flex items-center justify-center bg-slate-50">
-        <AuthScreen onLoginSuccess={fetchCurrentUser} />
+      <div className="h-screen w-screen flex items-center justify-center bg-slate-50 relative">
+        {isOffline && (
+          <div className="absolute top-0 w-full bg-red-600 text-white font-bold p-3 text-center z-50 flex justify-center items-center gap-2 shadow-md">
+            <ShieldAlert size={20} /> ⚠️ Network Disconnected — Displaying Emergency Direct Calls
+          </div>
+        )}
+        {isOffline ? <EmergencyCard /> : <AuthScreen onLoginSuccess={fetchCurrentUser} />}
       </div>
     );
   }
 
   return (
-    <div className="h-screen w-screen flex flex-col md:flex-row overflow-hidden bg-slate-100 text-slate-800 font-sans">
+    <div className="h-screen w-screen flex flex-col md:flex-row overflow-hidden bg-slate-100 text-slate-800 font-sans relative">
+      {isOffline && (
+        <div className="absolute top-0 w-full bg-red-600 text-white font-bold p-3 text-center z-50 flex justify-center items-center gap-2 shadow-md">
+          <ShieldAlert size={20} /> ⚠️ Network Disconnected — Displaying Emergency Direct Calls
+        </div>
+      )}
       
       {/* MOBILE HEADER (Visible only on small screens) */}
       <div className="md:hidden flex items-center justify-between p-4 bg-emerald-900 text-white shadow-md z-20">
@@ -153,14 +179,22 @@ function App() {
           </div>
 
           <div className="flex-1 flex flex-col mt-4 md:mt-0">
-            {user.role === 'patient' && !profile && (
-              <Onboarding user={user} onComplete={handleProfileSave} />
-            )}
-            {user.role === 'patient' && profile && (
-              <MainScreen profile={profile} />
-            )}
-            {user.role === 'caregiver' && (
-              <CaregiverDashboard profile={profile} />
+            {isOffline ? (
+              <div className="flex-1 flex items-center justify-center">
+                <EmergencyCard />
+              </div>
+            ) : (
+              <>
+                {user.role === 'patient' && !profile && (
+                  <Onboarding user={user} onComplete={handleProfileSave} />
+                )}
+                {user.role === 'patient' && profile && (
+                  <MainScreen profile={profile} />
+                )}
+                {user.role === 'caregiver' && (
+                  <CaregiverDashboard profile={profile} />
+                )}
+              </>
             )}
           </div>
         </div>
