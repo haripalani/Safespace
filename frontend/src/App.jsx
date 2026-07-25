@@ -12,6 +12,7 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [stealthMode, setStealthMode] = useState(false);
+  const [activePage, setActivePage] = useState('overview');
 
   const fetchCurrentUser = useCallback(async () => {
     try {
@@ -141,19 +142,27 @@ function App() {
           </div>
           
           <nav className="space-y-2">
-            <div className="flex items-center gap-4 px-4 py-3 bg-white text-emerald-900 rounded-xl font-semibold shadow-sm cursor-pointer">
+            <div 
+              onClick={() => setActivePage('overview')}
+              className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-colors cursor-pointer ${activePage === 'overview' ? 'bg-white text-emerald-900 font-semibold shadow-sm' : 'text-emerald-100 hover:bg-emerald-800'}`}>
               <LayoutDashboard size={20} />
               <span>Overview</span>
             </div>
-            <div className="flex items-center gap-4 px-4 py-3 text-emerald-100 hover:bg-emerald-800 rounded-xl transition-colors cursor-pointer">
+            <div 
+              onClick={() => setActivePage('profile')}
+              className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-colors cursor-pointer ${activePage === 'profile' ? 'bg-white text-emerald-900 font-semibold shadow-sm' : 'text-emerald-100 hover:bg-emerald-800'}`}>
               <User size={20} />
               <span>Profile</span>
             </div>
-            <div className="flex items-center gap-4 px-4 py-3 text-emerald-100 hover:bg-emerald-800 rounded-xl transition-colors cursor-pointer">
+            <div 
+              onClick={() => setActivePage('guidelines')}
+              className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-colors cursor-pointer ${activePage === 'guidelines' ? 'bg-white text-emerald-900 font-semibold shadow-sm' : 'text-emerald-100 hover:bg-emerald-800'}`}>
               <BookOpen size={20} />
               <span>Guidelines</span>
             </div>
-            <div className="flex items-center gap-4 px-4 py-3 text-red-200 hover:bg-red-900/50 rounded-xl transition-colors cursor-pointer mt-4 border border-emerald-800">
+            <div 
+              onClick={() => setActivePage('emergency')}
+              className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-colors cursor-pointer mt-4 border border-emerald-800 ${activePage === 'emergency' ? 'bg-red-900 text-white font-semibold shadow-sm' : 'text-red-200 hover:bg-red-900/50'}`}>
               <ShieldAlert size={20} />
               <span>Emergency</span>
             </div>
@@ -197,11 +206,44 @@ function App() {
                 {user.role === 'patient' && !profile && (
                   <Onboarding user={user} onComplete={handleProfileSave} />
                 )}
-                {user.role === 'patient' && profile && (
+                {user.role === 'patient' && profile && activePage === 'overview' && (
                   <MainScreen profile={profile} stealthMode={stealthMode} />
                 )}
-                {user.role === 'caregiver' && (
+                {user.role === 'caregiver' && activePage === 'overview' && (
                   <CaregiverDashboard profile={profile} />
+                )}
+                
+                {activePage === 'profile' && profile && (
+                   <div className="bg-white dark:bg-slate-800 p-8 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm max-w-2xl mx-auto w-full mt-10">
+                     <h2 className="text-2xl font-bold mb-6">Your Profile</h2>
+                     <div className="space-y-4 text-lg">
+                       <p><strong>Name:</strong> {profile.name}</p>
+                       <p><strong>Trusted Contact:</strong> {profile.trusted_contact}</p>
+                       {profile.calming_phrase && <p><strong>Calming Phrase:</strong> {profile.calming_phrase}</p>}
+                     </div>
+                     <button 
+                       className="mt-8 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 font-bold text-white rounded-xl transition-colors" 
+                       onClick={() => setProfile(null)}
+                     >
+                       Edit Profile
+                     </button>
+                   </div>
+                )}
+                
+                {activePage === 'guidelines' && (
+                   <div className="bg-white dark:bg-slate-800 p-8 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm max-w-2xl mx-auto w-full mt-10">
+                     <h2 className="text-2xl font-bold mb-6">Guidelines</h2>
+                     <ul className="list-disc pl-5 space-y-4 text-slate-700 dark:text-slate-300 text-lg">
+                       <li>Use the <strong>Overview</strong> dashboard when you feel triggered.</li>
+                       <li>In <strong>Stealth Mode</strong> (triple tap the logo), you can log triggers discreetly without raising suspicion.</li>
+                       <li>If you are in immediate danger, use the <strong>Emergency</strong> tab to contact help right away.</li>
+                       <li>Press <strong>Escape</strong> on your keyboard at any time for a Quick Exit to Google.</li>
+                     </ul>
+                   </div>
+                )}
+                
+                {activePage === 'emergency' && (
+                   <EmergencyCard />
                 )}
               </>
             )}
