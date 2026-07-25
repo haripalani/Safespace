@@ -2,42 +2,45 @@ const express = require('express');
 const router = express.Router();
 const Profile = require('../models/Profile');
 const { GoogleGenAI } = require('@google/genai');
+const auth = require('../middleware/auth');
 
-// Use GoogleGenAI properly.
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-
-// Input length caps
 const MAX_TEXT_LENGTH = 500;
 
-// POST /api/profile
-router.post('/profile', async (req, res) => {
+// POST /api/profile (Patient only)
+router.post('/profile', auth, async (req, res) => {
     try {
+        if (req.user.role !== 'patient') {
+            return res.status(403).json({ error: 'Only patients can update their profile' });
+        }
+
         let { name, trusted_contact, calming_phrase } = req.body;
         
-        // Basic length cap validation
         name = name ? String(name).substring(0, 100) : '';
         trusted_contact = trusted_contact ? String(trusted_contact).substring(0, 100) : '';
         calming_phrase = calming_phrase ? String(calming_phrase).substring(0, 250) : '';
 
-        // Save new profile (No auth, so we just create a new one each time for the demo)
-        const newProfile = new Profile({
-            name,
-            trusted_contact,
-            calming_phrase
-        });
+        // Upsert profile for the logged in patient
+        const profile = await Profile.findOneAndUpdate(
+            { userId: req.user._id },
+            { name, trusted_contact, calming_phrase },
+            { new: true, upsert: true, runValidators: true }
+        );
         
-        await newProfile.save();
-        
-        res.status(201).json({ success: true, profile: newProfile });
+        res.status(200).json({ success: true, profile });
     } catch (err) {
-        console.error('Error saving profile'); // Redacted real error to avoid leaking fields
+        console.error('Error saving profile');
         res.status(500).json({ error: 'Failed to save profile' });
     }
 });
 
-// POST /api/classify
-router.post('/classify', async (req, res) => {
+// POST /api/classify (Patient only)
+router.post('/classify', auth, async (req, res) => {
     try {
+        if (req.user.role !== 'patient') {
+            return res.status(403).json({ error: 'Unauthorized role' });
+        }
+
         const { text } = req.body;
         if (!text || typeof text !== 'string') {
             return res.status(400).json({ error: 'Text input required' });
@@ -79,19 +82,24 @@ Input text: "${cappedText}"`;
     }
 });
 
-// POST /api/generate
-router.post('/generate', async (req, res) => {
+// POST /api/generate (Patient only)
+router.post('/generate', auth, async (req, res) => {
     try {
-        const { text, profile } = req.body;
-        if (!text || typeof text !== 'string' || !profile) {
-            return res.status(400).json({ error: 'Text and profile required' });
+        if (req.user.role !== 'patient') {
+            return res.status(403).json({ error: 'Unauthorized role' });
+        }
+
+        const { text } = req.body;
+        if (!text || typeof text !== 'string') {
+            return res.status(400).json({ error: 'Text required' });
         }
         
         const cappedText = text.substring(0, MAX_TEXT_LENGTH);
+        const profile = await Profile.findOne({ userId: req.user._id });
         
-        const name = String(profile.name || '').substring(0, 100);
-        const contact_name = String(profile.trusted_contact || '').substring(0, 100);
-        const phrase = String(profile.calming_phrase || '').substring(0, 250);
+        const name = String(profile?.name || '').substring(0, 100);
+        const contact_name = String(profile?.trusted_contact || '').substring(0, 100);
+        const phrase = String(profile?.calming_phrase || '').substring(0, 250);
 
         const prompt = `You write a short, calming message for someone in early craving/distress, in 
 the style shown below. Do not copy the examples verbatim — generate a new 
@@ -120,6 +128,59 @@ Output under 40 words. Plain, warm language — avoid clinical terms like
     } catch (err) {
         console.error('Error in generate endpoint');
         res.status(500).json({ error: 'Generation failed' });
+    }
+});
+
+// POST /api/caregiver/respond (Caregiver only)
+router.post('/caregiver/respond', auth, async (req, res) => {
+    try {
+        if (req.user.role !== 'caregiver') {
+            return res.status(403).json({ error: 'Unauthorized role' });
+        }
+        if (!req.user.linkedPatientId) {
+            return res.status(403).json({ error: 'No patient linked to this account' });
+        }
+
+        const { text } = req.body;
+        if (!text || typeof text !== 'string') {
+            return res.status(400).json({ error: 'Text required' });
+        }
+
+        const cappedText = text.substring(0, MAX_TEXT_LENGTH);
+
+        const prompt = `You help a caregiver (friend, family member, or peer) respond calmly to 
+someone they support who may be in a craving or distress moment, in India. 
+Input may be in English, Hindi, or any major Indian language, including 
+code-mixed forms, and may be anxious or fragmented.
+Generate a short, calm script the caregiver can say out loud, plus one brief 
+"avoid saying" tip. Do not diagnose, do not suggest medication or dosages, do 
+not instruct on anything beyond calm de-escalation and when to seek 
+emergency help.
+If the input describes physical danger, overdose signs, or a medical 
+emergency, respond ONLY with: 
+{"emergency": true} 
+and nothing else — do not generate a script in this case.
+Otherwise return only JSON: 
+{"emergency": false, "script": "...", "avoid_tip": "..."}
+Keep the script under 40 words, warm, plain language, no clinical jargon.
+
+Caregiver's input: "${cappedText}"`;
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: prompt,
+            config: {
+                responseMimeType: 'application/json'
+            }
+        });
+
+        const output = response.text;
+        const parsed = JSON.parse(output);
+
+        res.json(parsed);
+    } catch (err) {
+        console.error('Error in caregiver respond endpoint');
+        res.status(500).json({ error: 'Caregiver generation failed' });
     }
 });
 

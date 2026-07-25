@@ -1,57 +1,71 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Onboarding from './components/Onboarding';
 import MainScreen from './components/MainScreen';
-import EducationLibrary from './components/EducationLibrary';
 import CaregiverDashboard from './components/CaregiverDashboard';
+import AuthScreen from './components/AuthScreen';
 
 function App() {
+  const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
-  const [isOnboarded, setIsOnboarded] = useState(false);
-  const [currentTab, setCurrentTab] = useState('home');
+  const [loading, setLoading] = useState(true);
+
+  const fetchCurrentUser = useCallback(async () => {
+    try {
+      const res = await fetch('/api/auth/me');
+      if (res.ok) {
+        const data = await res.json();
+        setUser(data.user);
+        setProfile(data.profile);
+      } else {
+        setUser(null);
+        setProfile(null);
+      }
+    } catch (err) {
+      setUser(null);
+      setProfile(null);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    // Only keeping session state in memory per requirements
-  }, []);
+    fetchCurrentUser();
+  }, [fetchCurrentUser]);
 
   const handleProfileSave = (newProfile) => {
     setProfile(newProfile);
-    setIsOnboarded(true);
   };
 
-  if (!isOnboarded) {
-    return <Onboarding onComplete={handleProfileSave} />;
+  const handleLogout = async () => {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    setUser(null);
+    setProfile(null);
+  };
+
+  if (loading) {
+    return <div className="min-h-screen bg-slate-50 flex items-center justify-center">Loading...</div>;
+  }
+
+  if (!user) {
+    return <AuthScreen onLoginSuccess={fetchCurrentUser} />;
   }
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans relative">
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {currentTab === 'home' && <MainScreen profile={profile} />}
-        {currentTab === 'education' && <EducationLibrary />}
-        {currentTab === 'caregiver' && <CaregiverDashboard profile={profile} />}
+      <div className="absolute top-4 right-4 z-10">
+        <button onClick={handleLogout} className="text-sm text-slate-500 hover:text-slate-800">Logout</button>
       </div>
 
-      {/* Bottom Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-        <div className="max-w-md mx-auto flex justify-around">
-          <button 
-            onClick={() => setCurrentTab('home')}
-            className={`flex-1 py-4 text-sm font-medium transition-colors ${currentTab === 'home' ? 'text-teal-700 border-t-2 border-teal-600' : 'text-slate-500 hover:text-slate-800'}`}
-          >
-            Support
-          </button>
-          <button 
-            onClick={() => setCurrentTab('education')}
-            className={`flex-1 py-4 text-sm font-medium transition-colors ${currentTab === 'education' ? 'text-teal-700 border-t-2 border-teal-600' : 'text-slate-500 hover:text-slate-800'}`}
-          >
-            Learn
-          </button>
-          <button 
-            onClick={() => setCurrentTab('caregiver')}
-            className={`flex-1 py-4 text-sm font-medium transition-colors ${currentTab === 'caregiver' ? 'text-teal-700 border-t-2 border-teal-600' : 'text-slate-500 hover:text-slate-800'}`}
-          >
-            Caregiver
-          </button>
-        </div>
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {user.role === 'patient' && !profile && (
+          <Onboarding user={user} onComplete={handleProfileSave} />
+        )}
+        {user.role === 'patient' && profile && (
+          <MainScreen profile={profile} />
+        )}
+        {user.role === 'caregiver' && (
+          <CaregiverDashboard profile={profile} />
+        )}
       </div>
     </div>
   );

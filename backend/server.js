@@ -4,7 +4,9 @@ const cors = require('cors');
 const mongoose = require('mongoose');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const cookieParser = require('cookie-parser');
 const apiRoutes = require('./routes/api');
+const authRoutes = require('./routes/auth');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -13,6 +15,7 @@ const PORT = process.env.PORT || 3000;
 app.use(helmet());
 app.use(cors()); // Configure correctly for production if needed
 app.use(express.json()); // Parse JSON bodies
+app.use(cookieParser());
 
 // Trust proxy if we are behind a reverse proxy (e.g., Cloud Run)
 // app.set('trust proxy', 1); // Enable this if deployed behind a trusted proxy
@@ -29,6 +32,7 @@ const apiLimiter = rateLimit({
 app.use('/api/', apiLimiter);
 
 // Routes
+app.use('/api/auth', authRoutes);
 app.use('/api', apiRoutes);
 
 // MongoDB connection
