@@ -107,14 +107,14 @@ def test_generation_for_low_medium(api_session):
     append_evidence(f"**Generated Message:**\n> {message}\n\n")
     append_evidence(f"✅ Success: Generated response received.\n\n")
 
-def test_caregiver_alert_on_medium_triage(api_session, caregiver_session):
-    append_evidence(f"## Testing Caregiver Real-time Nudge (M11)\n")
+def test_caregiver_alert_delayed_escrow(api_session, caregiver_session):
+    append_evidence(f"## Testing Caregiver Time-Delayed Care-Escrow Alert\n")
     
     # 1. Clear any existing alerts
     caregiver_session.post(f"{BASE_URL}/caregiver/clear-alert")
     
     # 2. Patient sends a MEDIUM trigger
-    trigger_text = "I am having a strong craving right now and need grounding" # Preset that triggers MEDIUM
+    trigger_text = "I am having a strong craving right now and need grounding"
     append_evidence(f"**Patient Payload:** `{trigger_text}`\n")
     response = api_session.post(f"{BASE_URL}/triage/", json={"text": trigger_text})
     assert response.status_code == 200
@@ -123,16 +123,24 @@ def test_caregiver_alert_on_medium_triage(api_session, caregiver_session):
     if data.get("bypassed_genai"):
         pytest.skip("Rate limited by Gemini API, fallback triggered.")
         
-    assert data.get("category") == "MEDIUM", "Expected MEDIUM category to trigger alert"
+    assert data.get("category") == "MEDIUM", "Expected MEDIUM category"
     
-    # 3. Caregiver checks alert status
+    # 3. Check alert status immediately (should NOT be pending yet)
+    alert_response_early = caregiver_session.get(f"{BASE_URL}/caregiver/alert-status")
+    alert_data_early = alert_response_early.json()
+    assert alert_data_early.get("pendingAlert") is False, "Expected no immediate alert"
+    
+    # 4. Timer expires, patient triggers alert endpoint manually
+    alert_trigger_response = api_session.post(f"{BASE_URL}/caregiver/alert", json={"text": "Patient safety timer expired"})
+    assert alert_trigger_response.status_code == 200
+    
+    # 5. Caregiver checks alert status again
     alert_response = caregiver_session.get(f"{BASE_URL}/caregiver/alert-status")
-    assert alert_response.status_code == 200, "Failed to get alert status"
+    assert alert_response.status_code == 200
     
     alert_data = alert_response.json()
     append_evidence(f"**Caregiver Alert Status:** `{alert_data}`\n")
     
-    assert alert_data.get("pendingAlert") is True, "Expected pendingAlert to be True"
-    assert alert_data.get("lastAlertText") == trigger_text, "Expected alert text to match patient input"
+    assert alert_data.get("pendingAlert") is True, "Expected pendingAlert to be True after timer expiration"
     
-    append_evidence(f"✅ Success: Caregiver successfully received the real-time nudge signal.\n\n")
+    append_evidence(f"✅ Success: Caregiver successfully received the delayed alert.\n\n")

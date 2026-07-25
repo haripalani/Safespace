@@ -11,6 +11,7 @@ function App() {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
+  const [stealthMode, setStealthMode] = useState(false);
 
   const fetchCurrentUser = useCallback(async () => {
     try {
@@ -103,7 +104,11 @@ function App() {
       
       {/* MOBILE HEADER (Visible only on small screens) */}
       <div className="md:hidden flex items-center justify-between p-4 bg-emerald-900 text-white shadow-md z-20">
-        <div className="flex items-center gap-2">
+        <div 
+          className="flex items-center gap-2 cursor-pointer"
+          onClick={(e) => { if (e.detail === 3) setStealthMode(!stealthMode); }}
+          title="Triple tap for stealth mode"
+        >
           <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center">
             <span className="text-emerald-900 font-bold text-lg">S</span>
           </div>
@@ -121,7 +126,11 @@ function App() {
       {/* LEFT PANEL: Sidebar (Hidden on mobile) */}
       <div className="hidden md:flex w-[280px] min-w-[280px] bg-emerald-900 border-r border-emerald-800 flex-col justify-between rounded-r-3xl my-2 ml-2 shadow-2xl z-10 overflow-hidden">
         <div className="p-8">
-          <div className="flex items-center gap-3 mb-12 text-emerald-50">
+          <div 
+            className="flex items-center gap-3 mb-12 text-emerald-50 cursor-pointer"
+            onClick={(e) => { if (e.detail === 3) setStealthMode(!stealthMode); }}
+            title="Triple click for stealth mode"
+          >
             <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center">
               <span className="text-emerald-900 font-bold text-xl">S</span>
             </div>
@@ -189,7 +198,7 @@ function App() {
                   <Onboarding user={user} onComplete={handleProfileSave} />
                 )}
                 {user.role === 'patient' && profile && (
-                  <MainScreen profile={profile} />
+                  <MainScreen profile={profile} stealthMode={stealthMode} />
                 )}
                 {user.role === 'caregiver' && (
                   <CaregiverDashboard profile={profile} />

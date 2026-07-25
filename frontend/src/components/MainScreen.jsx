@@ -1,17 +1,43 @@
 import React, { useState, useRef, useEffect } from 'react';
 import EmergencyCard from './EmergencyCard';
 import SupportCard from './SupportCard';
-import { Mic, MicOff } from 'lucide-react';
+import { Mic, MicOff, AlertCircle } from 'lucide-react';
 
-function MainScreen({ profile }) {
+function MainScreen({ profile, stealthMode }) {
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [view, setView] = useState('input'); // 'input', 'high', 'low-medium'
   const [generatedMessage, setGeneratedMessage] = useState('');
   const [isListening, setIsListening] = useState(false);
+  const [escrowTimeLeft, setEscrowTimeLeft] = useState(null);
   
   const recognitionRef = useRef(null);
+
+  // Escrow Timer Effect
+  useEffect(() => {
+    let timer;
+    if (escrowTimeLeft !== null && escrowTimeLeft > 0) {
+      timer = setInterval(() => setEscrowTimeLeft(prev => prev - 1), 1000);
+    } else if (escrowTimeLeft === 0) {
+      // Trigger API
+      setEscrowTimeLeft(null);
+      fetch('/api/caregiver/alert', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${document.cookie.split('token=')[1]?.split(';')[0]}` },
+        body: JSON.stringify({ text: "Patient's safety timer expired without confirmation." })
+      }).catch(console.error);
+      
+      if (!stealthMode) {
+        alert('Your trusted contact has been notified to check in on you.');
+      }
+    }
+    return () => clearInterval(timer);
+  }, [escrowTimeLeft, stealthMode]);
+
+  const handleEscrowCancel = () => {
+    setEscrowTimeLeft(null);
+  };
 
   // M6: Offline Event Listener
   useEffect(() => {
@@ -30,27 +56,18 @@ function MainScreen({ profile }) {
     const recognition = new SpeechRecognition();
     recognition.continuous = false;
     recognition.interimResults = false;
-    
-    // Default to Hindi/English loosely
     recognition.lang = 'hi-IN';
 
-    recognition.onstart = () => {
-      setIsListening(true);
-    };
-
+    recognition.onstart = () => setIsListening(true);
     recognition.onresult = (event) => {
       const transcript = event.results[0][0].transcript;
       setText((prev) => prev + (prev ? ' ' : '') + transcript);
     };
-
     recognition.onerror = (event) => {
       console.error('Speech recognition error', event.error);
       setIsListening(false);
     };
-
-    recognition.onend = () => {
-      setIsListening(false);
-    };
+    recognition.onend = () => setIsListening(false);
 
     recognitionRef.current = recognition;
   };
@@ -69,10 +86,10 @@ function MainScreen({ profile }) {
   };
 
   const presetChips = [
-    { label: "Active Craving", color: "bg-emerald-100 text-emerald-800 border-emerald-200 hover:bg-emerald-200", payload: "I am having a strong craving right now and need grounding", indicator: "🟢" },
-    { label: "Severe Anxiety", color: "bg-amber-100 text-amber-800 border-amber-200 hover:bg-amber-200", payload: "I feel overwhelmed and anxious, help me calm down", indicator: "🟡" },
-    { label: "Need a Script", color: "bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-200", payload: "I want to talk to my trusted contact, give me a short script", indicator: "🔵" },
-    { label: "Immediate Crisis", color: "bg-red-100 text-red-800 border-red-200 hover:bg-red-200", payload: "I took something dangerous / I am in immediate physical danger", indicator: "🔴" }
+    { label: "Active Craving", color: "bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800 hover:bg-emerald-200 dark:hover:bg-emerald-800", payload: "I am having a strong craving right now and need grounding", indicator: "🟢" },
+    { label: "Severe Anxiety", color: "bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800 hover:bg-amber-200 dark:hover:bg-amber-800", payload: "I feel overwhelmed and anxious, help me calm down", indicator: "🟡" },
+    { label: "Need a Script", color: "bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300 border-blue-200 dark:border-blue-800 hover:bg-blue-200 dark:hover:bg-blue-800", payload: "I want to talk to my trusted contact, give me a short script", indicator: "🔵" },
+    { label: "Immediate Crisis", color: "bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-300 border-red-200 dark:border-red-800 hover:bg-red-200 dark:hover:bg-red-800", payload: "I took something dangerous / I am in immediate physical danger", indicator: "🔴" }
   ];
 
   const submitText = async (payloadText) => {
@@ -82,7 +99,6 @@ function MainScreen({ profile }) {
     setError('');
     
     try {
-      // Step 1: Classify/Triage
       const classifyRes = await fetch('/api/triage', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -93,13 +109,20 @@ function MainScreen({ profile }) {
       
       const classifyData = await classifyRes.json();
       
+      if (classifyData.category === 'HIGH' || classifyData.category === 'MEDIUM') {
+        setEscrowTimeLeft(300); // 5 minutes grace window
+      }
+      
       if (classifyData.category === 'HIGH') {
-        setView('high');
+        if (!stealthMode) {
+          setView('high');
+        } else {
+          setGeneratedMessage("Remember to prioritize your well-being today.");
+        }
         setLoading(false);
         return;
       }
       
-      // Step 2: Generate for LOW/MEDIUM
       const generateRes = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -110,7 +133,10 @@ function MainScreen({ profile }) {
       
       const generateData = await generateRes.json();
       setGeneratedMessage(generateData.message);
-      setView('low-medium');
+      
+      if (!stealthMode) {
+        setView('low-medium');
+      }
       
     } catch (err) {
       setError('Something went wrong — please try again');
@@ -128,32 +154,105 @@ function MainScreen({ profile }) {
     submitText(text);
   };
 
+  // Stealth Mode UI
+  if (stealthMode) {
+    return (
+       <div className="w-full max-w-4xl mx-auto flex flex-col justify-center min-h-[60vh] gap-6">
+         {escrowTimeLeft !== null && (
+           <div className="bg-slate-100 dark:bg-slate-800 p-4 rounded-xl border border-slate-300 dark:border-slate-700 flex justify-between items-center text-slate-600 dark:text-slate-300 shadow-sm animate-pulse">
+             <span className="font-mono font-medium">Focus Sync: {Math.floor(escrowTimeLeft / 60)}:{(escrowTimeLeft % 60).toString().padStart(2, '0')}</span>
+             <button onClick={handleEscrowCancel} className="px-4 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg text-sm font-bold transition-colors">Stop Sync</button>
+           </div>
+         )}
+         
+         <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm flex-1 flex flex-col">
+           <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-6">Daily Task & Habit Notes</h3>
+           <div className="flex gap-4 mb-8">
+            <input 
+              type="text" 
+              placeholder="Jot down a quick task or note..." 
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              disabled={loading}
+              className="flex-1 p-4 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-lg focus:outline-none focus:ring-2 focus:ring-slate-400 dark:focus:ring-slate-500"
+            />
+            <button 
+              className="px-6 py-4 bg-slate-800 text-white font-bold rounded-xl active:scale-95 transition-transform disabled:opacity-50"
+              onClick={handleSubmit}
+              disabled={loading || !text.trim()}
+            >
+              {loading ? 'Saving...' : 'Add Note'}
+            </button>
+           </div>
+           
+           {generatedMessage && (
+             <div className="bg-slate-50 dark:bg-slate-800 p-6 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                <div className="flex items-start gap-3">
+                  <input type="checkbox" className="mt-1 w-5 h-5 rounded border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-200" />
+                  <p className="text-slate-700 dark:text-slate-200 leading-relaxed font-medium">{generatedMessage}</p>
+                </div>
+             </div>
+           )}
+           {error && <div className="text-red-500 text-sm mt-4 font-medium">{error}</div>}
+         </div>
+       </div>
+    );
+  }
+
+  // Normal UI Views
   if (view === 'high') {
-    return <EmergencyCard />;
+    return (
+      <div className="w-full flex flex-col gap-4 relative">
+        {escrowTimeLeft !== null && (
+          <div className="bg-red-50 dark:bg-red-900/30 p-4 rounded-2xl border-2 border-red-200 dark:border-red-800 flex justify-between items-center w-full max-w-4xl mx-auto z-10">
+             <div className="flex items-center gap-3">
+               <AlertCircle className="text-red-600 dark:text-red-400 animate-pulse" />
+               <span className="text-red-900 dark:text-red-200 font-bold">Alerting {profile?.trusted_contact || 'trusted contact'} in {Math.floor(escrowTimeLeft / 60)}:{(escrowTimeLeft % 60).toString().padStart(2, '0')}</span>
+             </div>
+             <button onClick={handleEscrowCancel} className="px-6 py-3 bg-red-100 dark:bg-red-800 hover:bg-red-200 dark:hover:bg-red-700 text-red-900 dark:text-red-100 rounded-xl text-sm font-bold shadow-sm active:scale-95 transition-all">Cancel Alert</button>
+          </div>
+        )}
+        <EmergencyCard />
+      </div>
+    );
   }
 
   if (view === 'low-medium') {
-    return <SupportCard message={generatedMessage} profile={profile} onReset={() => setView('input')} />;
+    return (
+      <div className="w-full flex flex-col gap-4 relative">
+        {escrowTimeLeft !== null && (
+          <div className="bg-amber-50 dark:bg-amber-900/30 p-4 rounded-2xl border-2 border-amber-200 dark:border-amber-800 flex justify-between items-center w-full max-w-4xl mx-auto z-10">
+             <div className="flex items-center gap-3">
+               <AlertCircle className="text-amber-600 dark:text-amber-400 animate-pulse" />
+               <span className="text-amber-900 dark:text-amber-200 font-bold">Alerting {profile?.trusted_contact || 'trusted contact'} in {Math.floor(escrowTimeLeft / 60)}:{(escrowTimeLeft % 60).toString().padStart(2, '0')}</span>
+             </div>
+             <button onClick={handleEscrowCancel} className="px-6 py-3 bg-amber-100 dark:bg-amber-800 hover:bg-amber-200 dark:hover:bg-amber-700 text-amber-900 dark:text-amber-100 rounded-xl text-sm font-bold shadow-sm active:scale-95 transition-all">I feel grounded / Cancel Alert</button>
+          </div>
+        )}
+        <SupportCard message={generatedMessage} profile={profile} onReset={() => setView('input')} />
+      </div>
+    );
   }
 
   return (
-    <div className="w-full max-w-4xl mx-auto flex flex-col justify-center min-h-[60vh] gap-6">
+    <div className="w-full max-w-4xl mx-auto flex flex-col justify-center min-h-[60vh] gap-6 relative">
+      
       {profile?.calming_phrase && (
-        <div className="mb-6 bg-white rounded-3xl p-6 shadow-sm border border-slate-100 flex items-center justify-between">
+        <div className="mb-6 bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-sm border border-slate-100 dark:border-slate-800 flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-bold text-emerald-900 mb-1">Hello {profile?.name || 'there'}</h2>
-            <p className="text-slate-500 text-sm">Remember your phrase:</p>
+            <h2 className="text-xl font-bold text-emerald-900 dark:text-emerald-100 mb-1">Hello {profile?.name || 'there'}</h2>
+            <p className="text-slate-500 dark:text-slate-400 text-sm">Remember your phrase:</p>
           </div>
-          <div className="bg-emerald-50 px-6 py-4 rounded-2xl border border-emerald-100 max-w-sm">
-            <p className="text-lg italic text-emerald-800 font-medium">
+          <div className="bg-emerald-50 dark:bg-emerald-900/40 px-6 py-4 rounded-2xl border border-emerald-100 dark:border-emerald-800 max-w-sm">
+            <p className="text-lg italic text-emerald-800 dark:text-emerald-200 font-medium">
               "{profile.calming_phrase}"
             </p>
           </div>
         </div>
       )}
       
-      <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm flex-1 flex flex-col">
-        <h3 className="text-lg font-bold text-slate-800 mb-6">Need support?</h3>
+      <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm flex-1 flex flex-col">
+        <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 mb-6">Need support?</h3>
         
         <div className="w-full mb-8">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
@@ -176,16 +275,16 @@ function MainScreen({ profile }) {
               value={text}
               onChange={(e) => setText(e.target.value)}
               disabled={loading}
-              className="flex-1 p-5 rounded-2xl bg-slate-50 border border-slate-200 text-slate-800 text-lg focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
+              className="flex-1 p-5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 text-lg focus:outline-none focus:border-emerald-500 dark:focus:border-emerald-400 focus:ring-1 focus:ring-emerald-500 dark:focus:ring-emerald-400 transition-colors"
             />
             <button 
-              className={`h-[72px] w-[72px] rounded-2xl flex items-center justify-center transition-all ${isListening ? 'bg-emerald-100 border-emerald-300 shadow-inner' : 'bg-white hover:bg-emerald-50 border-slate-200 shadow-sm'} border relative`}
+              className={`h-[72px] w-[72px] rounded-2xl flex items-center justify-center transition-all ${isListening ? 'bg-emerald-100 dark:bg-emerald-900/50 border-emerald-300 dark:border-emerald-700 shadow-inner' : 'bg-white dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-slate-700 border-slate-200 dark:border-slate-700 shadow-sm'} border relative`}
               onClick={toggleListen}
               disabled={loading}
               aria-label={isListening ? "Stop listening" : "Start voice input"}
             >
-              {isListening && <span className="absolute inset-0 rounded-2xl bg-emerald-400 opacity-20 animate-ping"></span>}
-              {isListening ? <MicOff className="text-emerald-700" size={28} /> : <Mic className="text-emerald-600" size={28} />}
+              {isListening && <span className="absolute inset-0 rounded-2xl bg-emerald-400 dark:bg-emerald-600 opacity-20 animate-ping"></span>}
+              {isListening ? <MicOff className="text-emerald-700 dark:text-emerald-400" size={28} /> : <Mic className="text-emerald-600 dark:text-emerald-500" size={28} />}
             </button>
           </div>
         </div>

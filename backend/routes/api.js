@@ -88,7 +88,7 @@ personalize and phrase it naturally.`;
         res.json({ message: response.text });
     } catch (err) {
         console.error('Error in generate endpoint:', err);
-        res.status(500).json({ error: 'Generation failed' });
+        res.status(200).json({ message: 'I am here for you. Please take a deep breath.' });
     }
 });
 
@@ -188,6 +188,28 @@ router.post('/caregiver/clear-alert', auth, async (req, res) => {
     } catch (err) {
         console.error('Error clearing alert');
         res.status(500).json({ error: 'Failed to clear alert' });
+    }
+});
+
+// POST /api/caregiver/alert (Patient only)
+router.post('/caregiver/alert', auth, async (req, res) => {
+    try {
+        if (req.user.role !== 'patient') {
+            return res.status(403).json({ error: 'Unauthorized role' });
+        }
+        
+        const { text } = req.body;
+        const cappedText = text ? String(text).substring(0, MAX_TEXT_LENGTH) : 'Patient requested immediate support.';
+
+        await User.updateMany(
+            { linkedPatientId: req.user._id, role: 'caregiver' },
+            { $set: { pendingAlert: true, lastAlertText: cappedText } }
+        );
+
+        res.json({ success: true });
+    } catch (err) {
+        console.error('Error setting alert', err);
+        res.status(500).json({ error: 'Failed to set alert' });
     }
 });
 

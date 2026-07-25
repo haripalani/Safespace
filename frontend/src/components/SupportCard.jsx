@@ -1,10 +1,13 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Phone, Play, Pause, RotateCcw } from 'lucide-react';
 import BreathingVisualizer from './BreathingVisualizer';
+import KinestheticGrounding from './KinestheticGrounding';
+import { Hand } from 'lucide-react';
 
 function SupportCard({ message, profile, onReset }) {
   const contactName = profile?.trusted_contact || 'someone you trust';
   const [isPlaying, setIsPlaying] = useState(false);
+  const [showGrounding, setShowGrounding] = useState(false);
   const utteranceRef = useRef(null);
 
   useEffect(() => {
@@ -80,27 +83,27 @@ function SupportCard({ message, profile, onReset }) {
 
   return (
     <div className="w-full max-w-2xl mx-auto flex flex-col justify-center min-h-[60vh]">
-      <div className="bg-white p-10 rounded-3xl border border-slate-100 shadow-sm text-center relative">
+      <div className="bg-white dark:bg-slate-900 p-10 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm text-center relative">
         
         {/* TTS Controls */}
         <div className="absolute top-4 right-4 flex gap-2">
           <button 
             onClick={togglePlayback}
-            className="p-3 rounded-full bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors shadow-sm"
+            className="p-3 rounded-full bg-emerald-50 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-800 transition-colors shadow-sm"
             aria-label={isPlaying ? "Pause audio" : "Play audio"}
           >
             {isPlaying ? <Pause size={20} /> : <Play size={20} />}
           </button>
           <button 
             onClick={replay}
-            className="p-3 rounded-full bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors shadow-sm"
+            className="p-3 rounded-full bg-emerald-50 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-800 transition-colors shadow-sm"
             aria-label="Replay audio"
           >
             <RotateCcw size={20} />
           </button>
         </div>
 
-        <p className="text-2xl md:text-3xl text-emerald-900 font-bold leading-relaxed mb-8 mt-8">
+        <p className="text-2xl md:text-3xl text-emerald-900 dark:text-emerald-100 font-bold leading-relaxed mb-8 mt-8">
           "{message}"
         </p>
         
@@ -112,9 +115,21 @@ function SupportCard({ message, profile, onReset }) {
               <Phone size={24} /> Call {contactName}
             </button>
           </a>
+
+          {!showGrounding ? (
+            <button 
+              className="w-full h-16 bg-teal-50 dark:bg-teal-900/30 hover:bg-teal-100 dark:hover:bg-teal-800 text-teal-700 dark:text-teal-200 border border-teal-200 dark:border-teal-800 text-lg font-bold rounded-2xl flex items-center justify-center gap-3 transition-colors active:scale-95 shadow-sm"
+              onClick={() => setShowGrounding(true)}
+            >
+              <Hand size={24} /> Interactive Grounding
+            </button>
+          ) : (
+            <KinestheticGrounding onClose={() => setShowGrounding(false)} />
+          )}
+          
           
           <button 
-            className="w-full h-16 bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200 text-lg font-medium rounded-2xl transition-colors active:scale-95" 
+            className="w-full h-16 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 text-lg font-medium rounded-2xl transition-colors active:scale-95" 
             onClick={onReset} 
             aria-label="Start over"
           >

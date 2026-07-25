@@ -45,13 +45,7 @@ exports.handleTriage = async (req, res) => {
             parsed.bypassed_genai = false;
         }
 
-        // M11: Trigger alert for MEDIUM triage
-        if (parsed.category === 'MEDIUM') {
-            await User.updateMany(
-                { linkedPatientId: req.user._id, role: 'caregiver' },
-                { $set: { pendingAlert: true, lastAlertText: cappedText } }
-            );
-        }
+
 
         res.status(200).json(parsed);
 
