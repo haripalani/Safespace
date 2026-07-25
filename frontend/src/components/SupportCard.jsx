@@ -17,9 +17,20 @@ function SupportCard({ message, profile, onReset }) {
 
     const setVoice = () => {
       const voices = window.speechSynthesis.getVoices();
-      const indianVoice = voices.find(v => v.lang === 'hi-IN' || v.lang === 'en-IN');
-      if (indianVoice) {
-        utterance.voice = indianVoice;
+      const isHindi = /[\u0900-\u097F]/.test(message);
+      
+      let voice = null;
+      if (isHindi) {
+        // Try to find a Hindi voice
+        voice = voices.find(v => v.lang.startsWith('hi'));
+      } else {
+        // Try to find an Indian English voice, fallback to any English
+        voice = voices.find(v => v.lang === 'en-IN') || voices.find(v => v.lang.startsWith('en'));
+      }
+      
+      if (voice) {
+        utterance.voice = voice;
+        utterance.lang = voice.lang;
       }
     };
 
